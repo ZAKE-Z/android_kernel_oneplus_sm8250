@@ -1,0 +1,24 @@
+{
+  "base_repository": "https://github.com/toraidl/android_kernel_oneplus_sm8250",
+  "base_branch": "bpf-5.15-backport",
+  "base_commit": "302ad90819725ae7040524e75c293b493b4b751c",
+  "driver_repository": "https://github.com/torvalds/linux",
+  "driver_commit": "9d66f26fefacebfeed15de31c1123451a17ff119",
+  "driver_snapshot": "7.4-rc2",
+  "extended_sources": {
+    "nowrep/dualsensectl": "d3ae2fa272e1bf9a5c08a0ded3f374b40f7c73ac",
+    "martin-bts/hid-switch2-dkms": "61f16e00cb71f51d4b1b29d893438097de2839be",
+    "ndeadly/switch2_controller_research": "a3306b473acff0d6844fb1e288883a3940df0baf",
+    "trevlars/switch2-controllers-linux": "a0a36e6b88ed5500f60cac29815aabad0d8956bd",
+    "JoeGeC/joycon2android": "8a1ed9495d869f5dfdfd4406cbdb4d24768fa1d8"
+  },
+  "source_sha256": {
+    "drivers/hid/hid-playstation.c": "8f8870b67fc94beda6cddc1b7ccd9b4d746a1926317df1fa9b80161d65d02b9a",
+    "drivers/hid/hid-nintendo.c": "050ad2130dbd0794a83f9c4f2ffb20aa2e93c33ecde3278e3337d67f3cfe6a0e",
+    "drivers/hid/hid-nintendo-switch2-usb.c": "5e0185734071cb274fc4d3cb8876309ebd9a52cd0fc38111387b6309e4bc0b00",
+    "drivers/hid/hid-microsoft.c": "96cf8632ef69ee4e622df1b99cd18eb0f8bb1433d85f3df0b9b203e821d314e7",
+    "drivers/hid/hid-sony.c": "3f4b7816df53ab5648a6c8ddd76c6079bfbc65a4b44b8e615b69480aae18a853",
+    "drivers/hid/hid-nintendo.h": "18ff36847132b3e33ad74d95e22016b51a8063fa86d63481e22761bca9461cf1",
+    "drivers/hid/hid-ids.h": "4beaae21baf1b93abdfc5bbe3f509bfa03d97d53bcb2d7f3b40320d4ae312eeb"
+  }
+}

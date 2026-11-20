@@ -596,6 +596,7 @@ config HID_REDRAGON
 config HID_MICROSOFT
 	tristate "Microsoft non-fully HID-compliant devices"
 	depends on HID
+	select INPUT_FF_MEMLESS
 	default !EXPERT
 	---help---
 	Support for Microsoft devices that are not fully compliant with HID standard.
@@ -654,15 +655,49 @@ config HID_MULTITOUCH
 	  module will be called hid-multitouch.
 
 config HID_NINTENDO
-	tristate "Nintendo Joy-Con and Pro Controller support"
+	tristate "Nintendo Switch, NSO and Switch 2 controller support"
 	depends on HID
+	depends on USB_HID
+	depends on NEW_LEDS
+	depends on LEDS_CLASS
+	select POWER_SUPPLY
 	help
-	Adds support for the Nintendo Switch Joy-Cons and Pro Controller.
-	All controllers support bluetooth, and the Pro Controller also supports
-	its USB mode.
+	  Adds support for Switch Joy-Cons, Pro and Switch Online controllers,
+	  and Switch 2 controllers. Switch 1 supports Bluetooth; the Pro
+	  Controller and Joy-Con charging grip also support USB. Switch 2 BLE
+	  requires the optional userspace GATT bridge described below.
 
-	To compile this driver as a module, choose M here: the
-	module will be called hid-nintendo.
+	  To compile this driver as a module, choose M here: the
+	  module will be called hid-nintendo.
+
+config NINTENDO_FF
+	bool "Nintendo controller force feedback support"
+	depends on HID_NINTENDO
+	select INPUT_FF_MEMLESS
+	help
+	  Enable rumble for Nintendo controllers supported by hid-nintendo,
+	  including Joy-Cons, Pro Controllers and supported NSO controllers.
+	  The two Pro Controller motors can be controlled independently.
+
+config NINTENDO_SWITCH2_USB
+	tristate "Wired Nintendo Switch 2 controller support"
+	depends on HID_NINTENDO
+	depends on USB
+	help
+	  Provide the USB configuration transport required by Switch 2
+	  Joy-Cons, Pro Controllers and NSO GameCube controllers.
+	  This accompanies hid-nintendo and does not add Bluetooth support.
+	  To build a module, choose M; it is called hid-nintendo-switch2-usb.
+
+config NINTENDO_SWITCH2_BLE
+	bool "Nintendo Switch 2 BLE via userspace GATT/UHID bridge"
+	depends on HID_NINTENDO
+	depends on UHID=y || (UHID=m && HID_NINTENDO=m)
+	help
+	  Accept the ns2-gatt-v1 transport from a privileged userspace BLE
+	  GATT bridge. Android Bluetooth settings alone cannot connect these
+	  proprietary BLE devices. This option does not modify the system
+	  Bluetooth stack. See Documentation/hid/gamepad-extended.rst.
 
 config HID_NTI
 	tristate "NTI keyboard adapters"
@@ -801,12 +836,15 @@ config HID_PLANTRONICS
 config HID_PLAYSTATION
 	tristate "PlayStation HID Driver"
 	depends on HID
+	depends on NEW_LEDS
+	depends on LEDS_CLASS
+	select LEDS_CLASS_MULTICOLOR
 	select CRC32
 	select POWER_SUPPLY
 	help
-	  Provides support for Sony PS5 controllers including support for
-	  its special functionalities e.g. touchpad, lights and motion
-	  sensors.
+	  Provides support for Sony PS4, PS5 and DualSense Edge controllers,
+	  including touchpad, lights, battery reporting, motion sensors and
+	  DualSense Edge extra buttons. Force feedback can be enabled below.
 
 config PLAYSTATION_FF
 	bool "PlayStation force feedback support"
@@ -857,7 +895,7 @@ config HID_SAMSUNG
 	Support for Samsung InfraRed remote control or keyboards.
 
 config HID_SONY
-	tristate "Sony PS2/3/4 accessories"
+	tristate "Sony accessories and PlayStation instrument controllers"
 	depends on USB_HID
 	depends on NEW_LEDS
 	depends on LEDS_CLASS
@@ -866,7 +904,7 @@ config HID_SONY
 	Support for
 
 	  * Sony PS3 6-axis controllers
-	  * Sony PS4 DualShock 4 controllers
+	  * PlayStation instrument controllers (DS4/DS5 use HID_PLAYSTATION)
 	  * Buzz controllers
 	  * Sony PS3 Blue-ray Disk Remote Control (Bluetooth)
 	  * Logitech Harmony adapter for Sony Playstation 3 (Bluetooth)

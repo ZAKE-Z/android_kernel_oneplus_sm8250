@@ -70,6 +70,7 @@ obj-$(CONFIG_HID_MICROSOFT)	+= hid-microsoft.o
 obj-$(CONFIG_HID_MONTEREY)	+= hid-monterey.o
 obj-$(CONFIG_HID_MULTITOUCH)	+= hid-multitouch.o
 obj-$(CONFIG_HID_NINTENDO)	+= hid-nintendo.o
+obj-$(CONFIG_NINTENDO_SWITCH2_USB)	+= hid-nintendo-switch2-usb.o
 obj-$(CONFIG_HID_NTI)			+= hid-nti.o
 obj-$(CONFIG_HID_NTRIG)		+= hid-ntrig.o
 obj-$(CONFIG_HID_ORTEK)		+= hid-ortek.o
@@ -100,6 +101,7 @@ obj-$(CONFIG_HID_SAITEK)	+= hid-saitek.o
 obj-$(CONFIG_HID_SAMSUNG)	+= hid-samsung.o
 obj-$(CONFIG_HID_SMARTJOYPLUS)	+= hid-sjoy.o
 obj-$(CONFIG_HID_SONY)		+= hid-sony.o
+
 obj-$(CONFIG_HID_SPEEDLINK)	+= hid-speedlink.o
 obj-$(CONFIG_HID_STEAM)		+= hid-steam.o
 obj-$(CONFIG_HID_STEELSERIES)	+= hid-steelseries.o
@@ -115,6 +117,12 @@ obj-$(CONFIG_HID_LED)		+= hid-led.o
 obj-$(CONFIG_HID_XINMO)		+= hid-xinmo.o
 obj-$(CONFIG_HID_ZEROPLUS)	+= hid-zpff.o
 obj-$(CONFIG_HID_ZYDACRON)	+= hid-zydacron.o
+
+# Scoped cleanup helpers in the backported gamepad drivers need C99 scopes.
+CFLAGS_hid-playstation.o += -std=gnu11 -Wno-declaration-after-statement
+CFLAGS_hid-nintendo.o += -std=gnu11 -Wno-declaration-after-statement
+CFLAGS_hid-nintendo-switch2-usb.o += -std=gnu11 -Wno-declaration-after-statement
+CFLAGS_hid-sony.o += -std=gnu11 -Wno-declaration-after-statement
 
 wacom-objs			:= wacom_wac.o wacom_sys.o
 obj-$(CONFIG_HID_WACOM)		+= wacom.o

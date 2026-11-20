@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *  HID driver for some microsoft "special" devices
  *
@@ -9,10 +10,6 @@
  */
 
 /*
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
  */
 
 #include <linux/device.h>
@@ -29,11 +26,41 @@
 #define MS_NOGET		BIT(4)
 #define MS_DUPLICATE_USAGES	BIT(5)
 #define MS_SURFACE_DIAL		BIT(6)
+#define MS_QUIRK_FF		BIT(7)
+
+struct ms_data {
+	unsigned long quirks;
+	struct hid_device *hdev;
+	struct work_struct ff_worker;
+	__u8 strong;
+	__u8 weak;
+	void *output_report_dmabuf;
+};
+
+#define XB1S_FF_REPORT		3
+#define ENABLE_WEAK		BIT(0)
+#define ENABLE_STRONG		BIT(1)
+
+enum {
+	MAGNITUDE_STRONG = 2,
+	MAGNITUDE_WEAK,
+	MAGNITUDE_NUM
+};
+
+struct xb1s_ff_report {
+	__u8	report_id;
+	__u8	enable;
+	__u8	magnitude[MAGNITUDE_NUM];
+	__u8	duration_10ms;
+	__u8	start_delay_10ms;
+	__u8	loop_count;
+} __packed;
 
 static __u8 *ms_report_fixup(struct hid_device *hdev, __u8 *rdesc,
 		unsigned int *rsize)
 {
-	unsigned long quirks = (unsigned long)hid_get_drvdata(hdev);
+	struct ms_data *ms = hid_get_drvdata(hdev);
+	unsigned long quirks = ms->quirks;
 
 	/*
 	 * Microsoft Wireless Desktop Receiver (Model 1028) has
@@ -136,16 +163,13 @@ static int ms_surface_dial_quirk(struct hid_input *hi, struct hid_field *field,
 {
 	switch (usage->hid & HID_USAGE_PAGE) {
 	case 0xff070000:
-		/* fall-through */
 	case HID_UP_DIGITIZER:
 		/* ignore those axis */
 		return -1;
 	case HID_UP_GENDESK:
 		switch (usage->hid) {
 		case HID_GD_X:
-			/* fall-through */
 		case HID_GD_Y:
-			/* fall-through */
 		case HID_GD_RFKILL_BTN:
 			/* ignore those axis */
 			return -1;
@@ -159,7 +183,8 @@ static int ms_input_mapping(struct hid_device *hdev, struct hid_input *hi,
 		struct hid_field *field, struct hid_usage *usage,
 		unsigned long **bit, int *max)
 {
-	unsigned long quirks = (unsigned long)hid_get_drvdata(hdev);
+	struct ms_data *ms = hid_get_drvdata(hdev);
+	unsigned long quirks = ms->quirks;
 
 	if (quirks & MS_ERGONOMY) {
 		int ret = ms_ergonomy_kb_quirk(hi, usage, bit, max);
@@ -185,7 +210,8 @@ static int ms_input_mapped(struct hid_device *hdev, struct hid_input *hi,
 		struct hid_field *field, struct hid_usage *usage,
 		unsigned long **bit, int *max)
 {
-	unsigned long quirks = (unsigned long)hid_get_drvdata(hdev);
+	struct ms_data *ms = hid_get_drvdata(hdev);
+	unsigned long quirks = ms->quirks;
 
 	if (quirks & MS_DUPLICATE_USAGES)
 		clear_bit(usage->code, *bit);
@@ -196,7 +222,8 @@ static int ms_input_mapped(struct hid_device *hdev, struct hid_input *hi,
 static int ms_event(struct hid_device *hdev, struct hid_field *field,
 		struct hid_usage *usage, __s32 value)
 {
-	unsigned long quirks = (unsigned long)hid_get_drvdata(hdev);
+	struct ms_data *ms = hid_get_drvdata(hdev);
+	unsigned long quirks = ms->quirks;
 	struct input_dev *input;
 
 	if (!(hdev->claimed & HID_CLAIMED_INPUT) || !field->hidinput ||
@@ -251,12 +278,88 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 	return 0;
 }
 
+static void ms_ff_worker(struct work_struct *work)
+{
+	struct ms_data *ms = container_of(work, struct ms_data, ff_worker);
+	struct hid_device *hdev = ms->hdev;
+	struct xb1s_ff_report *r = ms->output_report_dmabuf;
+	int ret;
+
+	memset(r, 0, sizeof(*r));
+
+	r->report_id = XB1S_FF_REPORT;
+	r->enable = ENABLE_WEAK | ENABLE_STRONG;
+	/*
+	 * Specifying maximum duration and maximum loop count should
+	 * cover maximum duration of a single effect, which is 65536
+	 * ms
+	 */
+	r->duration_10ms = U8_MAX;
+	r->loop_count = U8_MAX;
+	r->magnitude[MAGNITUDE_STRONG] = ms->strong; /* left actuator */
+	r->magnitude[MAGNITUDE_WEAK] = ms->weak;     /* right actuator */
+
+	ret = hid_hw_output_report(hdev, (__u8 *)r, sizeof(*r));
+	if (ret < 0)
+		hid_warn(hdev, "failed to send FF report\n");
+}
+
+static int ms_play_effect(struct input_dev *dev, void *data,
+			  struct ff_effect *effect)
+{
+	struct hid_device *hid = input_get_drvdata(dev);
+	struct ms_data *ms = hid_get_drvdata(hid);
+
+	if (effect->type != FF_RUMBLE)
+		return 0;
+
+	/*
+	 * Magnitude is 0..100 so scale the 16-bit input here
+	 */
+	ms->strong = ((u32) effect->u.rumble.strong_magnitude * 100) / U16_MAX;
+	ms->weak = ((u32) effect->u.rumble.weak_magnitude * 100) / U16_MAX;
+
+	schedule_work(&ms->ff_worker);
+	return 0;
+}
+
+static int ms_input_configured(struct hid_device *hdev, struct hid_input *hidinput)
+{
+	struct ms_data *ms = hid_get_drvdata(hdev);
+	struct input_dev *input_dev = hidinput->input;
+
+	if (!(ms->quirks & MS_QUIRK_FF))
+		return 0;
+
+	if (!list_is_first(&hidinput->list, &hdev->inputs))
+		return 0;
+
+	ms->hdev = hdev;
+
+	ms->output_report_dmabuf = devm_kzalloc(&hdev->dev,
+					     sizeof(struct xb1s_ff_report), GFP_KERNEL);
+	if (ms->output_report_dmabuf == NULL)
+		return -ENOMEM;
+
+	input_set_capability(input_dev, EV_FF, FF_RUMBLE);
+	return input_ff_create_memless(input_dev, NULL, ms_play_effect);
+}
+
 static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 {
 	unsigned long quirks = id->driver_data;
+	struct ms_data *ms;
 	int ret;
 
-	hid_set_drvdata(hdev, (void *)quirks);
+	ms = devm_kzalloc(&hdev->dev, sizeof(*ms), GFP_KERNEL);
+	if (ms == NULL)
+		return -ENOMEM;
+
+	ms->quirks = quirks;
+	if (quirks & MS_QUIRK_FF)
+		INIT_WORK(&ms->ff_worker, ms_ff_worker);
+
+	hid_set_drvdata(hdev, ms);
 
 	if (quirks & MS_NOGET)
 		hdev->quirks |= HID_QUIRK_NOGET;
@@ -267,19 +370,28 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	ret = hid_parse(hdev);
 	if (ret) {
 		hid_err(hdev, "parse failed\n");
-		goto err_free;
+		return ret;
 	}
 
 	ret = hid_hw_start(hdev, HID_CONNECT_DEFAULT | ((quirks & MS_HIDINPUT) ?
 				HID_CONNECT_HIDINPUT_FORCE : 0));
 	if (ret) {
 		hid_err(hdev, "hw start failed\n");
-		goto err_free;
+		if (quirks & MS_QUIRK_FF)
+			cancel_work_sync(&ms->ff_worker);
+		return ret;
 	}
 
 	return 0;
-err_free:
-	return ret;
+}
+static void ms_remove(struct hid_device *hdev)
+{
+	struct ms_data *ms = hid_get_drvdata(hdev);
+
+	hid_hw_stop(hdev);
+	/* 4.19 does not cancel driver-owned FF work during input teardown. */
+	if (ms->quirks & MS_QUIRK_FF)
+		cancel_work_sync(&ms->ff_worker);
 }
 
 static const struct hid_device_id ms_devices[] = {
@@ -318,6 +430,19 @@ static const struct hid_device_id ms_devices[] = {
 		.driver_data = MS_PRESENTER },
 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x091B),
 		.driver_data = MS_SURFACE_DIAL },
+
+	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_CONTROLLER_MODEL_1708),
+		.driver_data = MS_QUIRK_FF },
+	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_CONTROLLER_MODEL_1708_BLE),
+		.driver_data = MS_QUIRK_FF },
+	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_CONTROLLER_MODEL_1914),
+		.driver_data = MS_QUIRK_FF },
+	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_CONTROLLER_MODEL_1797),
+		.driver_data = MS_QUIRK_FF },
+	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_CONTROLLER_MODEL_1797_BLE),
+		.driver_data = MS_QUIRK_FF },
+	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_8BITDO_SN30_PRO_PLUS),
+		.driver_data = MS_QUIRK_FF },
 	{ }
 };
 MODULE_DEVICE_TABLE(hid, ms_devices);
@@ -328,9 +453,12 @@ static struct hid_driver ms_driver = {
 	.report_fixup = ms_report_fixup,
 	.input_mapping = ms_input_mapping,
 	.input_mapped = ms_input_mapped,
+	.input_configured = ms_input_configured,
 	.event = ms_event,
 	.probe = ms_probe,
+	.remove = ms_remove,
 };
 module_hid_driver(ms_driver);
 
+MODULE_DESCRIPTION("HID driver for some microsoft \"special\" devices");
 MODULE_LICENSE("GPL");
