@@ -9,6 +9,8 @@
 #include <linux/leds.h>
 #include <dt-bindings/leds/common.h>
 
+struct led_init_data;
+
 struct mc_subled {
 	unsigned int color_index;
 	unsigned int brightness;

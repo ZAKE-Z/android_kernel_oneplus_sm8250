@@ -19,6 +19,12 @@ config LEDS_CLASS
 	  This option enables the led sysfs class in /sys/class/leds.  You'll
 	  need this to do anything useful with LEDs.  If unsure, say N.
 
+config LEDS_CLASS_MULTICOLOR
+	tristate "LED Multicolor Class Support"
+	depends on LEDS_CLASS
+	help
+	  Provide RGB lightbar color control for PlayStation controllers.
+
 config LEDS_CLASS_FLASH
 	tristate "LED Flash Class Support"
 	depends on LEDS_CLASS
