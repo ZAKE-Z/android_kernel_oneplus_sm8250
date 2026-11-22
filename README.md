@@ -11,7 +11,7 @@
 本仓库是 [`toraidl/android_kernel_oneplus_sm8250`](https://github.com/toraidl/android_kernel_oneplus_sm8250) 的 **fork**，上游分支为 `bpf-5.15-backport`，基准提交为 `302ad90819725ae7040524e75c293b493b4b751c`（Linux `4.19.325`）。
 
 - 目标设备：OPPO Pad **OPD2101**（`kona` / SM8250），运行第三方 ColorOS 17 移植系统（原厂最高支持 ColorOS 14）。
-- 本仓库包含手柄和浏览器兼容性改动，以及实验性的充电、电量代码移植。实验性 boot 镜像通过 Release 附件提供。
+- 本仓库包含手柄和浏览器兼容性改动，以及实验性的充电、电量代码移植。实验性 boot 镜像通过 [Release 附件](https://github.com/ZAKE-Z/android_kernel_oneplus_sm8250/releases/tag/oppo-pad-charge-port-2026-11)提供。
 - **真机测试范围仅限 OPPO Pad OPD2101**；不能据此推断其他设备兼容。新移植的充电代码及对应 boot 镜像尚未确认通过真机测试，不能保证修复充电问题。
 - 设备实际 ROM 内核源码并未公开；本 fork **不声称**与设备出厂或 ROM 作者内核完全一致。所有运行结论以真机验证为准。
 
@@ -88,7 +88,7 @@ OUT_DIR=$HOME/kbuild/opd2101-out bash build-gamepad.sh image
 This repository is a **fork** of [`toraidl/android_kernel_oneplus_sm8250`](https://github.com/toraidl/android_kernel_oneplus_sm8250), from the `bpf-5.15-backport` branch at commit `302ad90819725ae7040524e75c293b493b4b751c` (Linux `4.19.325`).
 
 - Target device: OPPO Pad **OPD2101** (`kona` / SM8250), running a third-party ColorOS 17 port (the stock device only officially supports up to ColorOS 14).
-- This fork carries gamepad and browser compatibility changes and an experimental charging/battery backport. An experimental boot image is supplied as a Release asset.
+- This fork carries gamepad and browser compatibility changes and an experimental charging/battery backport. An experimental boot image is supplied as a [Release asset](https://github.com/ZAKE-Z/android_kernel_oneplus_sm8250/releases/tag/oppo-pad-charge-port-2026-11).
 - **Hardware testing has only been performed on OPPO Pad OPD2101**; compatibility with other devices is not established. The new charging backport and corresponding boot image have not yet been confirmed on hardware.
 - The actual ROM kernel source for the device is not public. This fork makes **no claim** of being identical to the vendor or ROM author's kernel; all runtime conclusions require on-device verification.
 
