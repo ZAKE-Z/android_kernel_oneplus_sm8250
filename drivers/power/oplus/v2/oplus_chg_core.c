@@ -8,10 +8,7 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/device.h>
-#ifndef CONFIG_DISABLE_OPLUS_FUNCTION
 #include <soc/oplus/system/boot_mode.h>
-#include <soc/oplus/system/oplus_project.h>
-#endif
 #ifdef CONFIG_OPLUS_CHARGER_MTK
 #include <mtk_boot_common.h>
 #endif
@@ -23,68 +20,33 @@
 int oplus_log_level = LOG_LEVEL_INFO;
 module_param(oplus_log_level, int, 0644);
 MODULE_PARM_DESC(oplus_log_level, "debug log level");
-EXPORT_SYMBOL(oplus_log_level);
 
 int charger_abnormal_log = 0;
 
 int oplus_is_rf_ftm_mode(void)
 {
-#ifndef CONFIG_DISABLE_OPLUS_FUNCTION
 	int boot_mode = get_boot_mode();
 #ifdef CONFIG_OPLUS_CHARGER_MTK
-	struct device_node * of_chosen = NULL;
-	char *bootargs = NULL;
-
-	of_chosen = of_find_node_by_path("/chosen");
-
-	if (boot_mode == META_BOOT || boot_mode == FACTORY_BOOT ||
-	    boot_mode == ADVMETA_BOOT || boot_mode == ATE_FACTORY_BOOT) {
-		chg_debug(" boot_mode:%d, return\n", boot_mode);
-		if (of_chosen) {
-			/* Add for MTK FTM AGING DDR test mode, if FTM AGING mode, enable charging.
-			If Qcom platform want enable this feature, need resubmit issue */
-			bootargs = (char *)of_get_property(of_chosen, "bootargs", NULL);
-			if (!bootargs)
-				chg_err("%s: failed to get bootargs\n", __func__);
-			else {
-				chg_debug("%s: bootargs: %s\n", __func__, bootargs);
-				if (strstr(bootargs, "oplus_ftm_mode=ftmaging")) {
-					chg_debug("%s: ftmaging!\n", __func__);
-					return false;
-				} else {
-					chg_debug("%s: not ftmaging!\n", __func__);
-				}
-			}
-		} else {
-			chg_err("%s: failed to get /chosen \n", __func__);
-		}
+	if (boot_mode == META_BOOT || boot_mode == FACTORY_BOOT
+			|| boot_mode == ADVMETA_BOOT || boot_mode == ATE_FACTORY_BOOT) {
+		chg_debug(" boot_mode:%d, return\n",boot_mode);
 		return true;
 	} else {
 		/*chg_debug(" boot_mode:%d, return false\n",boot_mode);*/
 		return false;
 	}
 #else
-	if (boot_mode == MSM_BOOT_MODE__RF ||
-	    boot_mode == MSM_BOOT_MODE__WLAN ||
-	    boot_mode == MSM_BOOT_MODE__FACTORY) {
-		chg_debug(" boot_mode:%d, return\n", boot_mode);
+	if(boot_mode == MSM_BOOT_MODE__RF || boot_mode == MSM_BOOT_MODE__WLAN
+			|| boot_mode == MSM_BOOT_MODE__FACTORY){
+		chg_debug(" boot_mode:%d, return\n",boot_mode);
 		return true;
 	} else {
 		/*chg_debug(" boot_mode:%d, return false\n",boot_mode);*/
 		return false;
 	}
 #endif
-#else /*CONFIG_DISABLE_OPLUS_FUNCTION*/
-	return false;
-#endif /*CONFIG_DISABLE_OPLUS_FUNCTION*/
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
-#ifndef CONFIG_DISABLE_OPLUS_FUNCTION
-bool __attribute__((weak)) qpnp_is_charger_reboot(void);
-bool __attribute__((weak)) qpnp_is_power_off_charging(void);
-#endif /*CONFIG_DISABLE_OPLUS_FUNCTION*/
-#else
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0))
 /* only for GKI compile */
 bool __attribute__((weak)) qpnp_is_charger_reboot(void)
@@ -97,11 +59,9 @@ bool __attribute__((weak)) qpnp_is_power_off_charging(void)
 	return false;
 }
 #endif
-#endif
 
 bool oplus_is_power_off_charging(void)
 {
-#ifndef CONFIG_DISABLE_OPLUS_FUNCTION
 #ifdef CONFIG_OPLUS_CHARGER_MTK
 	if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT) {
 		return true;
@@ -111,14 +71,10 @@ bool oplus_is_power_off_charging(void)
 #else
 	return qpnp_is_power_off_charging();
 #endif
-#else /*CONFIG_DISABLE_OPLUS_FUNCTION*/
-	return false;
-#endif /*CONFIG_DISABLE_OPLUS_FUNCTION*/
 }
 
 bool oplus_is_charger_reboot(void)
 {
-#ifndef CONFIG_DISABLE_OPLUS_FUNCTION
 #ifdef CONFIG_OPLUS_CHARGER_MTK
 	/*TODO
 	int charger_type;
@@ -134,29 +90,6 @@ bool oplus_is_charger_reboot(void)
 #else
 	return qpnp_is_charger_reboot();
 #endif
-#else /*CONFIG_DISABLE_OPLUS_FUNCTION*/
-	return false;
-#endif /*CONFIG_DISABLE_OPLUS_FUNCTION*/
-}
-
-struct timespec oplus_current_kernel_time(void)
-{
-	struct timespec ts;
-	getnstimeofday(&ts);
-	return ts;
-}
-
-bool oplus_is_ptcrb_version(void)
-{
-#ifndef CONFIG_DISABLE_OPLUS_FUNCTION
-#ifndef CONFIG_OPLUS_CHARGER_MTK
-	return (get_eng_version() == PTCRB);
-#else
-	return false;
-#endif
-#else /*CONFIG_DISABLE_OPLUS_FUNCTION*/
-	return false;
-#endif /*CONFIG_DISABLE_OPLUS_FUNCTION*/
 }
 
 #ifdef MODULE
@@ -187,12 +120,12 @@ static struct oplus_chg_module *oplus_chg_find_first_module(void)
 
 static int __init oplus_chg_class_init(void)
 {
-#ifdef MODULE
 	int rc;
+#ifdef MODULE
 	int module_num, i;
 	struct oplus_chg_module *first_module;
 	struct oplus_chg_module *oplus_module;
-
+#endif
 #if __and(IS_MODULE(CONFIG_OPLUS_CHG), IS_MODULE(CONFIG_OPLUS_CHG_V2))
 	struct device_node *node;
 
@@ -203,12 +136,13 @@ static int __init oplus_chg_class_init(void)
 		return 0;
 #endif /* CONFIG_OPLUS_CHG_V2 */
 
+#ifdef MODULE
 	module_num = oplus_chg_get_module_num();
 	if (module_num == 0) {
 		chg_err("oplus chg module not found, please check oplus_chg_module.lds\n");
-		return 0;
+		goto end;
 	} else {
-		chg_info("find %d oplus chg module\n", module_num);
+		chg_info("find %d oplsu chg module\n", module_num);
 	}
 	first_module = oplus_chg_find_first_module();
 	for (i = 0; i < module_num; i++) {
@@ -225,6 +159,8 @@ static int __init oplus_chg_class_init(void)
 		}
 	}
 #endif /* MODULE */
+
+end:
 	return 0;
 
 #ifdef MODULE
@@ -235,9 +171,8 @@ module_init_err:
 		    (oplus_module->chg_module_exit != NULL))
 			oplus_module->chg_module_exit();
 	}
-
-	return rc;
 #endif /* MODULE */
+	return rc;
 }
 
 static void __exit oplus_chg_class_exit(void)
@@ -246,16 +181,6 @@ static void __exit oplus_chg_class_exit(void)
 	int module_num, i;
 	struct oplus_chg_module *first_module;
 	struct oplus_chg_module *oplus_module;
-
-#if __and(IS_MODULE(CONFIG_OPLUS_CHG), IS_MODULE(CONFIG_OPLUS_CHG_V2))
-	struct device_node *node;
-
-	node = of_find_node_by_path("/soc/oplus_chg_core");
-	if (node == NULL)
-		return;
-	if (!of_property_read_bool(node, "oplus,chg_framework_v2"))
-		return;
-#endif /* CONFIG_OPLUS_CHG_V2 */
 
 	module_num = oplus_chg_get_module_num();
 	first_module = oplus_chg_find_first_module();

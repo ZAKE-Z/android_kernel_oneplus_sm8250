@@ -42,14 +42,14 @@ struct cgcl_strategy {
 static struct oplus_mms *comm_topic;
 static struct oplus_mms *gauge_topic;
 
-__maybe_unused static bool is_comm_topic_available(void)
+__maybe_unused static bool is_comm_topic_available()
 {
 	if (!comm_topic)
 		comm_topic = oplus_mms_get_by_name("common");
 	return !!comm_topic;
 }
 
-__maybe_unused static bool is_gauge_topic_available(void)
+__maybe_unused static bool is_gauge_topic_available()
 {
 	if (!gauge_topic)
 		gauge_topic = oplus_mms_get_by_name("gauge");
@@ -202,7 +202,6 @@ static int cgcl_strategy_release(struct oplus_chg_strategy *strategy)
 	cgcl = (struct cgcl_strategy *)strategy;
 
 	kfree(cgcl->data);
-	kfree(cgcl);
 
 	return 0;
 }
@@ -232,7 +231,7 @@ static int cgcl_strategy_init(struct oplus_chg_strategy *strategy)
 	return 0;
 }
 
-static int cgcl_strategy_get_data(struct oplus_chg_strategy *strategy, void *ret)
+static int cgcl_strategy_get_data(struct oplus_chg_strategy *strategy, int *ret)
 {
 	struct cgcl_strategy *cgcl;
 	int temp_diff, temp;
@@ -280,10 +279,10 @@ static int cgcl_strategy_get_data(struct oplus_chg_strategy *strategy, void *ret
 			if (temp <= cgcl->data[cgcl->temp_region.index]
 					    .cool_temp &&
 			    cgcl->data[cgcl->temp_region.index].cool_temp >
-				    cgcl->temp_min)
+				    cgcl->temp_max)
 				cgcl->temp_region.temp =
 					cgcl->data[cgcl->temp_region.index]
-						.cool_temp;
+						.heat_temp;
 			else
 				cgcl->temp_region.temp = temp;
 		} else {
@@ -291,10 +290,10 @@ static int cgcl_strategy_get_data(struct oplus_chg_strategy *strategy, void *ret
 		}
 		temp_diff = temp - cgcl->temp_region.temp;
 	}
-	*((int *)ret) = cgcl->data[cgcl->temp_region.index].curr_data;
+	*ret = cgcl->data[cgcl->temp_region.index].curr_data;
 
 	chg_info("ret=%d, index=%d, temp=%d\n",
-		 *((int *)ret), cgcl->temp_region.index, temp);
+		 *ret, cgcl->temp_region.index, temp);
 
 	return 0;
 }

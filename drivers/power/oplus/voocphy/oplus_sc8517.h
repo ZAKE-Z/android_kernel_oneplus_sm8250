@@ -77,9 +77,6 @@
 #define SC8517_VAC_INRANGE_ENABLE                   0
 #define SC8517_VAC_INRANGE_DISABLE                  1
 
-/* Register 03h */
-#define SC8517_REG_03                      0x03
-
 /* Register 04h */
 #define SC8517_REG_04                      0x04
 
@@ -118,13 +115,6 @@
 
 /* Register 10h */
 #define SC8517_REG_10                      0x10
-
-/* Register 12h */
-#define SC8517_REG_12                       0x12
-#define RVS_OCP_DG                          BIT(3)
-#define NO_EXTRA_DEGLITCH                   0
-#define EXTRA_10US_DEGLITCH                 1
-#define EXTRA_10US_DEGLITCH_SHIFT           3
 
 /* Register 15h */
 #define SC8517_REG_15                      0x15
@@ -176,7 +166,9 @@
 #define SC8517_REG_2D                      0x2D
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0))
-int sc8517_subsys_init(void);
-void sc8517_subsys_exit(void);
+int sc8547_subsys_init(void);
+void sc8547_subsys_exit(void);
+int sc8547_slave_subsys_init(void);
+void sc8547_slave_subsys_exit(void);
 #endif
 #endif

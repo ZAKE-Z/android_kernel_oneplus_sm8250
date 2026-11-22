@@ -16,12 +16,9 @@ enum {
 	SY6970,
 	SY6974B,
 	SGM41511,
-	SGM41512,
-	SC6607
+	SGM41512
 };
 
 extern void set_charger_ic(int sel);
-int oplus_get_subboard_temp(void);
-int qpnp_get_prop_charger_voltage_now(void);
-bool oplus_check_pdphy_ready(void);
+
 #endif

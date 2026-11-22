@@ -451,45 +451,22 @@ static void p922x_set_FOD_parameter(struct oplus_p922x_ic *chip, char parameter)
 
 static int p922x_set_tx_Q_value(struct oplus_p922x_ic *chip)
 {
-	int q_value = 0x41;
+	chg_err("<~WPC~>p922x_set_tx_Q_value----------->\n");
 
-	switch (chip->p922x_chg_status.dock_version) {
-	case DOCK_OAWV00:
-	case DOCK_OAWV01:
-		q_value = 0x41;
-		break;
-	case DOCK_OAWV02:
-	case DOCK_OAWV03:
-	case DOCK_THIRD:
-		q_value = 0x56;
-		break;
-	case DOCK_OAWV04:
-	case DOCK_OAWV05:
-	case DOCK_OAWV06:
-	case DOCK_OAWV07:
-	case DOCK_OAWV08:
-	case DOCK_OAWV09:
-	case DOCK_OAWV10:
-	case DOCK_OAWV11:
-	case DOCK_OAWV16:
-	case DOCK_OAWV17:
-	case DOCK_OAWV18:
-	case DOCK_OAWV19:
-		q_value = 0x56;
-		break;
-	default:
-		q_value = 0x41;
-		break;
-	}
-
-	chg_err("<~WPC~>p922x_set_tx_Q_value[0x%x]----------->\n", q_value);
 	p922x_clear_irq(chip, 0x00, 0x00);
-	/*send Q vvalue*/
+
+	//send the Q value
 	p922x_config_interface(chip, 0x0050, 0x38, 0xFF);
 	p922x_config_interface(chip, 0x0051, 0x48, 0xFF);
 	p922x_config_interface(chip, 0x0052, 0x00, 0xFF);
-	p922x_config_interface(chip, 0x0053, q_value, 0xFF);
-	p922x_config_interface(chip, 0x004E, 0x01, 0x01);
+	if (chip->p922x_chg_status.dock_version == 0x02) {
+		p922x_config_interface(chip, 0x0053, 0x56, 0xFF);
+	}
+	else {
+		p922x_config_interface(chip, 0x0053, 0x41, 0xFF);
+	}
+
+	p922x_config_interface(chip, 0x004E, 0x01, 0x01);//BIT0
 
 	return 0;
 }
@@ -5036,7 +5013,7 @@ int oplus_get_wrx_en_val(void)
 	struct oplus_p922x_ic *chip = p922x_chip;
 
 	if (!chip) {
-		chg_err("oplus_wpc_chip not ready!\n");
+		chg_err("oplus_wpc_chip not ready!\n", __func__);
 		return 0;
 	}
 	if (chip->wrx_en_gpio <= 0) {
@@ -5126,7 +5103,7 @@ int oplus_get_wrx_otg_en_val(void)
 	struct oplus_p922x_ic *chip = p922x_chip;
 
 	if (!chip) {
-		chg_err("oplus_wpc_chip not ready!\n");
+		chg_err("oplus_wpc_chip not ready!\n", __func__);
 		return 0;
 	}
 	if (chip->wrx_otg_en_gpio <= 0) {
@@ -5864,7 +5841,7 @@ static ssize_t proc_wireless_ftm_mode_write(struct file *file, const char __user
 {
 	char buffer[2] = {0};
 
-	chg_err("%s: len[%zu] start.\n", __func__, len);
+	chg_err("%s: len[%d] start.\n", __func__, len);
 	if (len > 2) {
 		return -EFAULT;
 	}
@@ -6164,7 +6141,7 @@ static ssize_t proc_wireless_charge_pump_write(struct file *file,
 	char buffer[2] = { 0 };
 	int val = 0;
 
-	chg_err("%s: len[%zu] start.\n", __func__, count);
+	chg_err("%s: len[%d] start.\n", __func__, count);
 	if (count > 2) {
 		return -EFAULT;
 	}
@@ -6548,7 +6525,7 @@ static ssize_t proc_wireless_rx_freq_write(struct file *file,
 
 	memset(string, 0, 16);
 	copy_from_user(string, buf, count);
-	chg_err("buf = %s, len = %zu\n", string, count);
+	chg_err("buf = %s, len = %d\n", string, count);
 	kstrtoint(string, 0, &freq);
 	chg_err("set freq threshold to %d\n", freq);
 	chip->p922x_chg_status.freq_threshold = freq;
@@ -6682,7 +6659,7 @@ static ssize_t proc_wireless_user_sleep_mode_write(struct file *file, const char
 	}
 
 	if (len > 4) {
-		chg_err("len[%zu] -EFAULT\n", len);
+		chg_err("len[%d] -EFAULT\n", len);
 		return -EFAULT;
 	}
 
@@ -6786,7 +6763,7 @@ static ssize_t proc_wireless_idt_adc_test_write(struct file *file, const char __
 	}
 
 	if (len > 4) {
-		chg_err("%s: len[%zu] -EFAULT.\n", __func__, len);
+		chg_err("%s: len[%d] -EFAULT.\n", __func__, len);
 		return -EFAULT;
 	}
 
@@ -6998,33 +6975,18 @@ static int p922x_wpc_get_max_wireless_power(void)
 	}
 
 	switch (base_wireless_power) {
-	case DOCK_OAWV00:
-		base_wireless_power = 30;
-		break;
-	case DOCK_OAWV01:
-		base_wireless_power = 40;
-		break;
-	case DOCK_OAWV02:
-	case DOCK_OAWV03:
-	case DOCK_OAWV04:
-	case DOCK_OAWV05:
-	case DOCK_OAWV06:
-	case DOCK_OAWV07:
-	case DOCK_OAWV08:
-	case DOCK_OAWV09:
-		base_wireless_power = 50;
-		break;
-	case DOCK_OAWV10:
-	case DOCK_OAWV11:
-	case DOCK_OAWV16:
-	case DOCK_OAWV17:
-	case DOCK_OAWV18:
-	case DOCK_OAWV19:
-		base_wireless_power = 100;
-		break;
-	default:
-		base_wireless_power = 15;
-		break;
+		case DOCK_OAWV00:
+			base_wireless_power = 30;
+			break;
+		case DOCK_OAWV01:
+			base_wireless_power = 40;
+			break;
+		case DOCK_OAWV02:
+			base_wireless_power = 50;
+			break;
+		default:
+			base_wireless_power = 15;
+			break;
 	}
 
 	max_wireless_power = adapter_wireless_power > chip->p922x_chg_status.wireless_power ? chip->p922x_chg_status.wireless_power : adapter_wireless_power;

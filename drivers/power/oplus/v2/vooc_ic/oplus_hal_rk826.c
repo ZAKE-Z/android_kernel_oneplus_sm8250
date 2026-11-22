@@ -24,7 +24,11 @@
 #include <linux/platform_device.h>
 #include <asm/atomic.h>
 #include <linux/dma-mapping.h>
+
+/* #include <mt-plat/battery_meter.h> */
 #include <linux/module.h>
+#include <soc/oplus/device_info.h>
+
 #else
 #include <linux/i2c.h>
 #include <linux/debugfs.h>
@@ -41,12 +45,10 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/machine.h>
+#include <soc/oplus/device_info.h>
 #endif
 #include <linux/firmware.h>
-#ifndef CONFIG_DISABLE_OPLUS_FUNCTION
-#include <soc/oplus/device_info.h>
 #include <soc/oplus/system/oplus_project.h>
-#endif
 #include <oplus_chg_module.h>
 #include <oplus_chg.h>
 #include <oplus_chg_ic.h>
@@ -896,8 +898,7 @@ static int rk826_fw_write_00_code(struct rk826_chip *chip, const u8 *fw_buf,
 	req.timeout = 0;
 	req.fw_crc = js_hash(fw_buf, fw_size); /* for crc hash */
 	req.header_crc = js_hash((const u8 *)&req, sizeof(req) - 4);
-	ret = WriteSram(chip, (const u8 *)&req, sizeof(req));
-	if (ret != 0) {
+	if ((ret = WriteSram(chip, (const u8 *)&req, sizeof(req))) != 0) {
 		chg_err("failed to send request!err=%d\n", ret);
 		goto update_fw_err;
 	}
@@ -916,8 +917,7 @@ static int rk826_fw_write_00_code(struct rk826_chip *chip, const u8 *fw_buf,
 	}
 
 	/* send fw */
-	ret = Download_00_code(chip);
-	if (ret != 0) {
+	if ((ret = Download_00_code(chip)) != 0) {
 		chg_err("failed to send firmware");
 		goto update_fw_err;
 	}
@@ -1016,8 +1016,7 @@ static int rk826_fw_write_ff_code(struct rk826_chip *chip, const u8 *fw_buf,
 	req.timeout = 0;
 	req.fw_crc = js_hash(fw_buf, fw_size); /* for crc hash */
 	req.header_crc = js_hash((const u8 *)&req, sizeof(req) - 4);
-	ret = WriteSram(chip, (const u8 *)&req, sizeof(req));
-	if (ret != 0) {
+	if ((ret = WriteSram(chip, (const u8 *)&req, sizeof(req))) != 0) {
 		chg_err("failed to send request!err=%d\n", ret);
 		goto update_fw_err;
 	}
@@ -1036,8 +1035,7 @@ static int rk826_fw_write_ff_code(struct rk826_chip *chip, const u8 *fw_buf,
 	}
 
 	/* send fw */
-	ret = Download_ff_code(chip);
-	if (ret != 0) {
+	if ((ret = Download_ff_code(chip)) != 0) {
 		chg_err("failed to send firmware");
 		goto update_fw_err;
 	}
@@ -1170,8 +1168,7 @@ static int rk826_fw_update(struct rk826_chip *chip, const u8 *fw_buf,
 	req.timeout = 0;
 	req.fw_crc = js_hash(fw_buf, req.length);
 	req.header_crc = js_hash((const u8 *)&req, sizeof(req) - 4);
-	ret = WriteSram(chip, (const u8 *)&req, sizeof(req));
-	if (ret != 0) {
+	if ((ret = WriteSram(chip, (const u8 *)&req, sizeof(req))) != 0) {
 		chg_err("failed to send request!err=%d\n", ret);
 		goto update_fw_err;
 	}
@@ -1190,8 +1187,7 @@ static int rk826_fw_update(struct rk826_chip *chip, const u8 *fw_buf,
 	}
 
 	/* send fw */
-	ret = DownloadFirmware(chip, fw_buf, fw_size);
-	if (ret != 0) {
+	if ((ret = DownloadFirmware(chip, fw_buf, fw_size)) != 0) {
 		chg_err("failed to send firmware");
 		goto update_fw_err;
 	}
@@ -1210,7 +1206,7 @@ static int rk826_fw_update(struct rk826_chip *chip, const u8 *fw_buf,
 			    (u8 *)(&force_dis_update_flag));
 	msleep(2);
 	oplus_i2c_dma_write(chip->client, REG_RESET, 4, (u8 *)(&sw_reset_flag));
-	snprintf(chip->ic_dev->fw_id, OPLUS_CHG_IC_FW_ID_MAX - 1, "0x%x", fw_buf[fw_size - 4]);
+	sprintf(chip->ic_dev->fw_id, "0x%x", fw_buf[fw_size - 4]);
 	chg_debug("success\n");
 	return 0;
 
@@ -2100,13 +2096,12 @@ static int rk826_driver_probe(struct i2c_client *client,
 	}
 	ic_cfg.name = node->name;
 	ic_cfg.index = ic_index;
-	snprintf(ic_cfg.manu_name, OPLUS_CHG_IC_MANU_NAME_MAX - 1, "asic-rk826");
-	snprintf(ic_cfg.fw_id, OPLUS_CHG_IC_FW_ID_MAX - 1, "0x00");
+	sprintf(ic_cfg.manu_name, "rk826");
+	sprintf(ic_cfg.fw_id, "0x00");
 	ic_cfg.type = ic_type;
 	ic_cfg.get_func = rk826_get_func;
 	ic_cfg.virq_data = rk826_virq_table;
 	ic_cfg.virq_num = ARRAY_SIZE(rk826_virq_table);
-	ic_cfg.of_node = node;
 	chip->ic_dev = devm_oplus_chg_ic_register(chip->dev, &ic_cfg);
 	if (!chip->ic_dev) {
 		rc = -ENODEV;
@@ -2157,21 +2152,12 @@ error:
 	return rc;
 }
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 0, 0))
 static int rk826_driver_remove(struct i2c_client *client)
-#else
-static void rk826_driver_remove(struct i2c_client *client)
-#endif
 {
 	struct rk826_chip *chip = i2c_get_clientdata(client);
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 0, 0))
 	if (chip == NULL)
 		return 0;
-#else
-	if (chip == NULL)
-		return;
-#endif
 
 	if (chip->ic_dev->online)
 		rk826_exit(chip->ic_dev);
@@ -2179,11 +2165,7 @@ static void rk826_driver_remove(struct i2c_client *client)
 	i2c_set_clientdata(client, NULL);
 	devm_kfree(&client->dev, chip);
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 0, 0))
 	return 0;
-#else
-	return;
-#endif
 }
 
 /**********************************************************

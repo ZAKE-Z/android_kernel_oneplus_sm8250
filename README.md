@@ -1,4 +1,4 @@
-# android_kernel_oneplus_sm8250 — 手柄驱动回移 & 浏览器修复（OPD2101 适配）
+# android_kernel_oneplus_sm8250（OPPO Pad OPD2101）
 
 [中文说明](#中文说明) | [English](#english)
 
@@ -11,7 +11,8 @@
 本仓库是 [`toraidl/android_kernel_oneplus_sm8250`](https://github.com/toraidl/android_kernel_oneplus_sm8250) 的 **fork**，上游分支为 `bpf-5.15-backport`，基准提交为 `302ad90819725ae7040524e75c293b493b4b751c`（Linux `4.19.325`）。
 
 - 目标设备：OPPO Pad **OPD2101**（`kona` / SM8250），运行第三方 ColorOS 17 移植系统（原厂最高支持 ColorOS 14）。
-- 本 fork 仅在上游源码基础上加入下列经过审阅、可独立复核的内核源码改动；设备分区备份、boot 镜像、编译日志、第三方 Root 框架源码以及个人环境信息均未纳入。
+- 本仓库包含手柄和浏览器兼容性改动，以及实验性的充电、电量代码移植。实验性 boot 镜像通过 Release 附件提供。
+- **真机测试范围仅限 OPPO Pad OPD2101**；不能据此推断其他设备兼容。新移植的充电代码及对应 boot 镜像尚未确认通过真机测试，不能保证修复充电问题。
 - 设备实际 ROM 内核源码并未公开；本 fork **不声称**与设备出厂或 ROM 作者内核完全一致。所有运行结论以真机验证为准。
 
 ### 修改内容
@@ -45,11 +46,19 @@
   - `include/linux/capability.h`：新增 `checkpoint_restore_ns_capable()`。
   - `security/selinux/include/classmap.h`：`COMMON_CAP2_PERMS` 增加 `"checkpoint_restore"`，并同步编译期上界断言。
 
+#### 3. 充电与电量代码移植（实验性）
+
+- 从 [`ZAKE-Z/android_kernel_OPPO_sm8250_GamepadDriver`](https://github.com/ZAKE-Z/android_kernel_OPPO_sm8250_GamepadDriver) 的 `stock/13.1`（`30b6a4f19`）引入 `drivers/power/oplus/` 对应文件，并移植 `drivers/power/supply/qcom/qpnp-fg-gen4.c`；目标树独有文件未删除。
+- 充电、电量计、VOOC 等关键驱动已随设备配置编译；这不代表硬件、设备树、充电协议或电量显示已经验证，也不证明已修复此前异常。
+- 模块支持 `CONFIG_MODULES=y` 原已启用，本构建保留强制模块签名。新生成的签名密钥与设备已有模块可能不兼容。
+- 本次构建的 PS5 驱动与 Linux 7.3.5 稳定版作过对照，保留了仓库已有的 4.19 兼容层及自适应扳机、Edge 按键等定制。
+
 ### 已知问题 / 风险提示
 
 - **充电异常（未确认原因）**：在 OPD2101 真机上曾出现过一次**无法充电、电量一直显示 1%**，之后又自行恢复。原因尚未定位，**不排除与内核的电源管理 / 充电 IC 驱动 / ColorOS 移植适配有关**；这是单次观察，不代表必然发生，也不等于已经确认由本 fork 改动导致。
 - 建议：保留可回退的 boot 备份；若再次出现，记录发生时间、充电器与线材，并抓取 `dmesg` 以及 `/sys/class/power_supply/` 下的充电相关信息，便于后续定位。
 - 手柄的 Switch 2 BLE、DualSense 自适应扳机等扩展功能均为实验性实现，**未经真机验证**，不应视为完整硬件支持。
+- 实验构建存在 5 条未解析 BTF ID 警告、设备树输出目录缺失提示和 `depmod` 警告，尚未确认这些警告的来源及影响。
 
 ### 构建与测试
 
@@ -62,7 +71,7 @@ OUT_DIR=$HOME/kbuild/opd2101-out bash build-gamepad.sh objects
 OUT_DIR=$HOME/kbuild/opd2101-out bash build-gamepad.sh image
 ```
 
-> 本仓库不包含 KernelSU 等第三方 Root 框架源码，也不包含 boot 镜像打包与刷写脚本；如需集成请在外部自行接入后编译。
+> 实验性 `boot.img` 基于设备上已有的 `boot-gamepad-cap40.img` 打包，保留其 ramdisk 与 DTB；与当前设备固件的匹配关系尚未独立核实。此仓库不包含 KernelSU 等第三方 Root 框架源码。
 
 ### 来源与许可
 
@@ -79,7 +88,8 @@ OUT_DIR=$HOME/kbuild/opd2101-out bash build-gamepad.sh image
 This repository is a **fork** of [`toraidl/android_kernel_oneplus_sm8250`](https://github.com/toraidl/android_kernel_oneplus_sm8250), from the `bpf-5.15-backport` branch at commit `302ad90819725ae7040524e75c293b493b4b751c` (Linux `4.19.325`).
 
 - Target device: OPPO Pad **OPD2101** (`kona` / SM8250), running a third-party ColorOS 17 port (the stock device only officially supports up to ColorOS 14).
-- This fork only carries the reviewed kernel source adaptations listed below. Device partition dumps, boot images, build logs, third-party root framework sources and personal environment details are excluded.
+- This fork carries gamepad and browser compatibility changes and an experimental charging/battery backport. An experimental boot image is supplied as a Release asset.
+- **Hardware testing has only been performed on OPPO Pad OPD2101**; compatibility with other devices is not established. The new charging backport and corresponding boot image have not yet been confirmed on hardware.
 - The actual ROM kernel source for the device is not public. This fork makes **no claim** of being identical to the vendor or ROM author's kernel; all runtime conclusions require on-device verification.
 
 ### Changes
@@ -113,11 +123,19 @@ Backported from an upstream Linux snapshot (`torvalds/linux` `7.4-rc2`, commit `
   - `include/linux/capability.h`: add `checkpoint_restore_ns_capable()`.
   - `security/selinux/include/classmap.h`: add `"checkpoint_restore"` to `COMMON_CAP2_PERMS` and update the compile-time bound check.
 
+#### 3. Charging and battery backport (experimental)
+
+- Import corresponding `drivers/power/oplus/` files and `drivers/power/supply/qcom/qpnp-fg-gen4.c` from [`ZAKE-Z/android_kernel_OPPO_sm8250_GamepadDriver`](https://github.com/ZAKE-Z/android_kernel_OPPO_sm8250_GamepadDriver) `stock/13.1` (`30b6a4f19`); target-only files remain in place.
+- Key charger, gauge and VOOC objects compiled with the device configuration. Hardware, device-tree and charging compatibility, and any actual fix for the observed issue, remain unverified.
+- `CONFIG_MODULES=y` was already enabled; forced module signatures remain enabled, so existing modules may not trust the newly generated key.
+- The PS5 driver was compared with stable Linux 7.3.5 while retaining this tree's 4.19 compatibility and DualSense customizations.
+
 ### Known issues / caveats
 
 - **Charging anomaly (cause unconfirmed)**: on the OPD2101 device, there was one observed episode where charging failed and the battery level stayed at 1%, then recovered by itself. The cause has not been identified; a kernel-related issue (power management / charging IC driver / ColorOS port adaptation) cannot be ruled out. This is a single observation and is **not** proof that this fork caused it.
 - Keep a recoverable boot backup. If it recurs, note the time, charger and cable, and capture `dmesg` plus `/sys/class/power_supply/` information for debugging.
 - Experimental controller features (Switch 2 BLE, DualSense adaptive triggers) are **not hardware-verified** and should not be treated as complete support.
+- The experimental build emitted five unresolved BTF ID warnings, missing device-tree output directory messages, and a `depmod` warning; their origin and impact remain unconfirmed.
 
 ### Build & Test
 
@@ -130,7 +148,7 @@ OUT_DIR=$HOME/kbuild/opd2101-out bash build-gamepad.sh objects
 OUT_DIR=$HOME/kbuild/opd2101-out bash build-gamepad.sh image
 ```
 
-> Third-party root frameworks such as KernelSU and any boot image packaging/flashing scripts are intentionally not included; integrate them externally if required.
+> The experimental `boot.img` was repacked using the device's existing `boot-gamepad-cap40.img`, retaining its ramdisk and DTB; a match to the currently running firmware has not been independently verified. Third-party root framework sources such as KernelSU are not included.
 
 ### Provenance & License
 
